@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RoadSense - Smarter Roads, Safer Cities</title>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com" rel="preconnect"/>
+<link crossorigin="" href="https://fonts.gstatic.com" rel="preconnect"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+  tailwind.config = {
+    darkMode: "class",
+    theme: {
+      extend: {
+        colors: {
+          "primary": "#15803d",
+          "primary-dark": "#166534",
+          "background-light": "#F9F9F8",
+          "surface": "#FFFFFF",
+          "text-main": "#3E3E3B",
+          "text-muted": "#8F8F8B",
+          "border-subtle": "#E8E8E5",
+          "civic-black": "#1A1A18",
+        },
+        fontFamily: {
+          "display": ["Inter", "sans-serif"],
+          "mono": ["ui-monospace", "SFMono-Regular", "Menlo", "Monaco", "Consolas", "Liberation Mono", "Courier New", "monospace"],
+        },
+        maxWidth: { "civic": "1000px" },
+        borderRadius: { DEFAULT: "4px", "md": "6px", "lg": "8px" },
+      },
+    },
+  }
+</script>
+<style>
+  body { font-feature-settings: "cv11","ss01"; -webkit-font-smoothing: antialiased; }
+
+  .civic-card { background-color: white; border: 1px solid #E8E8E5; transition: border-color 0.15s ease-out; }
+  .civic-card:hover { border-color: #1A1A18; }
+
+  .civic-button-primary { background-color: #15803d; color: #FFFFFF; font-weight: 600; transition: background-color 0.15s ease; }
+  .civic-button-primary:hover { background-color: #166534; }
+
+  .civic-button-secondary { background-color: transparent; border: 1px solid #E8E8E5; color: #1A1A18; font-weight: 500; transition: all 0.15s ease; }
+  .civic-button-secondary:hover { border-color: #1A1A18; background-color: #FFFFFF; }
+
+  /* Hero product preview */
+  .preview-road {
+    background: linear-gradient(160deg, #2a2a2a 0%, #1a1a1a 40%, #252525 100%);
+    position: relative;
+    overflow: hidden;
+  }
+  .preview-road::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 0; bottom: 0;
+    width: 3px;
+    background: repeating-linear-gradient(to bottom, #f5c518 0px, #f5c518 12px, transparent 12px, transparent 22px);
+    opacity: 0.4;
+  }
+
+  .bbox {
+    position: absolute;
+    border: 2px dashed;
+    border-radius: 2px;
+  }
+
+  /* Heatmap grid */
+  .heatmap-bg {
+    background-color: #F9F9F8;
+    background-image:
+      repeating-linear-gradient(to right, #E8E8E5 0px, #E8E8E5 1px, transparent 1px, transparent 32px),
+      repeating-linear-gradient(to bottom, #E8E8E5 0px, #E8E8E5 1px, transparent 1px, transparent 32px);
+  }
+
+  .heat-blob {
+    position: absolute;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    pointer-events: none;
+  }
+
+  /* Pulse animation */
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(0.85); }
+  }
+  .pulse { animation: pulse-dot 2s infinite; }
+
+  /* Bar chart bars */
+  .bar-fill { transition: width 1s ease; }
+
+  /* Work order card */
+  .wo-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+
+  /* Defect chip */
+  .defect-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 500; border: 1px solid;
+    font-family: ui-monospace, monospace;
+  }
+  .defect-chip-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+</style>
+</head>
+<body class="bg-background-light text-text-main font-display min-h-screen flex flex-col items-center selection:bg-primary/20 selection:text-civic-black">
+
+<!-- Navbar -->
+<nav class="w-full border-b border-border-subtle bg-background-light sticky top-0 z-50">
+  <div class="max-w-civic mx-auto px-6 h-16 flex items-center justify-between">
+    <div class="flex items-center gap-3">
+      <div class="size-6 text-civic-black">
+        <svg class="w-full h-full" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+          <path d="M12 2L2 22H22L12 2ZM12 6L18 18H6L12 6Z" fill="currentColor"/>
+        </svg>
+      </div>
+      <span class="text-civic-black font-bold text-lg tracking-tight">RoadSense</span>
+    </div>
+    <div class="flex items-center gap-3">
+      <button class="text-sm font-medium text-text-main hover:text-civic-black px-3 py-2 transition-colors">Sign In</button>
+      <button class="civic-button-primary text-sm px-4 py-2 rounded-md">Get Started</button>
+    </div>
+  </div>
+</nav>
+
+<!-- Main -->
+<main class="w-full max-w-civic px-6 flex flex-col gap-24 pt-20 pb-24">
+
+  <!-- ── HERO ── -->
+  <section class="flex flex-col gap-8">
+    <div class="flex flex-col gap-6 max-w-[760px]">
+      <h1 class="text-civic-black text-5xl md:text-6xl font-semibold leading-[1.1] tracking-[-0.03em]">
+        Smarter Roads, <br/>
+        <span style="color:#15803d">Safer Cities.</span>
+      </h1>
+      <p class="text-lg md:text-xl text-text-main max-w-[580px] leading-relaxed font-normal">
+        Automated defect detection for modern public works. Replace manual clipboard surveys with high-precision AI analysis.
+      </p>
+    </div>
+
+    <div class="flex flex-wrap gap-4">
+      <button class="civic-button-primary h-12 px-6 rounded-md flex items-center gap-2 text-base">
+        <span>Get Started</span>
+        <span class="material-symbols-outlined text-lg">arrow_forward</span>
+      </button>
+      <button class="civic-button-secondary h-12 px-6 rounded-md bg-surface text-base">See Live Demo</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="pt-4 flex items-center gap-8 border-t border-border-subtle w-full max-w-md">
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-wider font-semibold text-text-muted">Analysis Accuracy</span>
+        <span class="font-mono text-sm text-civic-black">99.4%</span>
+      </div>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-wider font-semibold text-text-muted">Processing Speed</span>
+        <span class="font-mono text-sm text-civic-black">~45ms / Frame</span>
+      </div>
+      <div class="flex flex-col gap-1">
+        <span class="text-xs uppercase tracking-wider font-semibold text-text-muted">Deployment</span>
+        <span class="font-mono text-sm text-civic-black">On-Prem / Cloud</span>
+      </div>
+    </div>
+
+    <!-- ── PRODUCT PREVIEW CARD ── -->
+    <div class="civic-card rounded-lg overflow-hidden w-full">
+      <!-- Browser chrome top bar -->
+      <div class="border-b border-border-subtle bg-background-light px-4 py-3 flex items-center gap-3">
+        <div class="flex items-center gap-1.5">
+          <div class="w-3 h-3 rounded-full bg-red-400"></div>
+          <div class="w-3 h-3 rounded-full bg-yellow-400"></div>
+          <div class="w-3 h-3 rounded-full" style="background:#15803d"></div>
+        </div>
+        <span class="font-mono text-xs text-text-muted mx-auto">RoadSense Dashboard — Inspection #INS-2847</span>
+      </div>
+
+      <!-- Preview content -->
+      <div class="p-4 md:p-6 grid grid-cols-1 md:grid-cols-2 gap-6 bg-background-light">
+
+        <!-- Left: Road image with bounding boxes -->
+        <div class="flex flex-col gap-3">
+          <span class="font-mono text-xs text-text-muted uppercase tracking-wider">Original → Annotated</span>
+          <div class="preview-road rounded-lg w-full h-44 md:h-52 relative">
+            <!-- Road surface texture lines -->
+            <div class="absolute inset-0 opacity-10" style="background: repeating-linear-gradient(90deg, #fff 0px, #fff 1px, transparent 1px, transparent 40px)"></div>
+            <!-- Pothole bbox -->
+            <div class="bbox" style="border-color:#ef4444; top:28%; left:18%; width:38%; height:32%;">
+              <div style="position:absolute; top:-20px; left:0; background:#ef4444; color:white; font-size:9px; font-family:monospace; padding:1px 6px; border-radius:2px; white-space:nowrap;">pothole — 94%</div>
+            </div>
+            <!-- Crack bbox -->
+            <div class="bbox" style="border-color:#f59e0b; top:55%; left:55%; width:28%; height:25%;">
+              <div style="position:absolute; top:-20px; left:0; background:#f59e0b; color:white; font-size:9px; font-family:monospace; padding:1px 6px; border-radius:2px; white-space:nowrap;">crack — 81%</div>
+            </div>
+            <!-- Corner label -->
+            <div style="position:absolute; bottom:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; font-size:9px; font-family:monospace; padding:3px 7px; border-radius:3px;">YOLOv8 · Roboflow</div>
+          </div>
+          <!-- Defect chips -->
+          <div class="flex flex-wrap gap-2">
+            <span class="defect-chip" style="background:#fef2f2; color:#dc2626; border-color:#fecaca;">
+              <span class="defect-chip-dot" style="background:#dc2626;"></span>Pothole ×2
+            </span>
+            <span class="defect-chip" style="background:#fffbeb; color:#d97706; border-color:#fde68a;">
+              <span class="defect-chip-dot" style="background:#d97706;"></span>Alligator Crack ×1
+            </span>
+            <span class="defect-chip" style="background:#f9f9f8; color:#6b7280; border-color:#E8E8E5;">
+              <span class="defect-chip-dot" style="background:#9ca3af;"></span>Crack ×1
+            </span>
+          </div>
+        </div>
+
+        <!-- Right: Score panel -->
+        <div class="flex flex-col gap-4">
+          <span class="font-mono text-xs text-text-muted uppercase tracking-wider">Road Quality Score</span>
+          <div class="civic-card rounded-lg p-5 flex flex-col gap-4">
+            <!-- Score number -->
+            <div class="flex items-end gap-3">
+              <span style="font-size:52px; font-weight:700; line-height:1; letter-spacing:-3px; color:#dc2626; font-variant-numeric:tabular-nums;">38</span>
+              <span class="text-text-muted text-sm mb-2 font-mono">/100</span>
+            </div>
+            <!-- Status pill -->
+            <div style="display:inline-flex; align-items:center; gap:6px; background:#fef2f2; border:1px solid #fecaca; color:#dc2626; font-size:12px; font-weight:600; padding:4px 10px; border-radius:20px; width:fit-content;">
+              <span style="width:6px;height:6px;border-radius:50%;background:#dc2626;display:inline-block;"></span>
+              Critical
+            </div>
+            <!-- Progress bar -->
+            <div>
+              <div style="height:5px; background:#E8E8E5; border-radius:3px; overflow:hidden;">
+                <div style="width:38%; height:100%; background:#dc2626; border-radius:3px;"></div>
+              </div>
+            </div>
+            <!-- Defect rows -->
+            <div class="flex flex-col gap-2 pt-1 border-t border-border-subtle">
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#dc2626;display:inline-block;"></span>
+                  <span class="text-xs font-mono text-text-main">Potholes</span>
+                </div>
+                <span class="text-xs font-mono font-semibold text-civic-black">2</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#d97706;display:inline-block;"></span>
+                  <span class="text-xs font-mono text-text-main">Alligator Cracks</span>
+                </div>
+                <span class="text-xs font-mono font-semibold text-civic-black">1</span>
+              </div>
+              <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                  <span style="width:7px;height:7px;border-radius:50%;background:#9ca3af;display:inline-block;"></span>
+                  <span class="text-xs font-mono text-text-main">Cracks</span>
+                </div>
+                <span class="text-xs font-mono font-semibold text-civic-black">1</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live footer bar -->
+      <div class="border-t border-border-subtle bg-surface px-5 py-3 flex items-center gap-3">
+        <span class="w-2 h-2 rounded-full pulse" style="background:#15803d; flex-shrink:0;"></span>
+        <span class="font-mono text-xs text-text-muted">LIVE · 3 new inspections in the last hour · Supabase Realtime connected</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── FEATURE CARDS ── -->
+  <section class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    <!-- Card 1 -->
+    <div class="civic-card p-6 rounded-lg flex flex-col gap-4 group cursor-default">
+      <div class="size-10 rounded-md bg-background-light border border-border-subtle flex items-center justify-center text-civic-black group-hover:border-civic-black transition-colors">
+        <span class="material-symbols-outlined">search</span>
+      </div>
+      <div class="flex flex-col gap-2">
+        <h3 class="text-civic-black font-semibold text-lg tracking-tight">AI Defect Detection</h3>
+        <p class="text-text-muted text-sm leading-relaxed">YOLOv8 detects potholes, alligator cracks, and surface damage in under 45ms. Bounding boxes drawn automatically on every flagged image.</p>
+      </div>
+      <div class="flex flex-wrap gap-2 pt-1">
+        <span class="defect-chip" style="background:#fef2f2; color:#dc2626; border-color:#fecaca;">
+          <span class="defect-chip-dot" style="background:#dc2626;"></span>Pothole
+        </span>
+        <span class="defect-chip" style="background:#fffbeb; color:#d97706; border-color:#fde68a;">
+          <span class="defect-chip-dot" style="background:#d97706;"></span>Alligator Crack
+        </span>
+        <span class="defect-chip" style="background:#f9f9f8; color:#6b7280; border-color:#E8E8E5;">
+          <span class="defect-chip-dot" style="background:#9ca3af;"></span>Crack
+        </span>
+      </div>
+    </div>
+
+    <!-- Card 2 -->
+    <div class="civic-card p-6 rounded-lg flex flex-col gap-4 group cursor-default">
+      <div class="size-10 rounded-md bg-background-light border border-border-subtle flex items-center justify-center text-civic-black group-hover:border-civic-black transition-colors">
+        <span class="material-symbols-outlined">my_location</span>
+      </div>
+      <div class="flex flex-col gap-2">
+        <h3 class="text-civic-black font-semibold text-lg tracking-tight">GPS Auto-Tagging</h3>
+        <p class="text-text-muted text-sm leading-relaxed">Every inspection is pinned to exact coordinates the moment a photo is submitted. No manual entry. No data loss.</p>
+      </div>
+      <div class="mt-1 flex items-center gap-2 bg-background-light border border-border-subtle rounded px-3 py-2">
+        <span class="material-symbols-outlined text-text-muted" style="font-size:14px;">location_on</span>
+        <span class="font-mono text-xs text-text-muted">18.5590° N, 73.7868° E · Baner Road, Pune</span>
+      </div>
+    </div>
+
+    <!-- Card 3 -->
+    <div class="civic-card p-6 rounded-lg flex flex-col gap-4 group cursor-default">
+      <div class="size-10 rounded-md bg-background-light border border-border-subtle flex items-center justify-center text-civic-black group-hover:border-civic-black transition-colors">
+        <span class="material-symbols-outlined">dashboard</span>
+      </div>
+      <div class="flex flex-col gap-2">
+        <h3 class="text-civic-black font-semibold text-lg tracking-tight">Live Admin Dashboard</h3>
+        <p class="text-text-muted text-sm leading-relaxed">Admins see every inspection in real time via Supabase Realtime. Heatmap updates the moment an inspector submits.</p>
+      </div>
+      <div class="mt-1 flex items-center gap-4 bg-background-light border border-border-subtle rounded px-3 py-2">
+        <span class="font-mono text-xs text-text-muted">248 inspections</span>
+        <span class="font-mono text-xs" style="color:#dc2626;">37 critical</span>
+        <span class="font-mono text-xs text-text-muted">Avg score 64</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HOW IT WORKS ── -->
+  <section class="flex flex-col gap-12">
+    <div class="flex flex-col gap-2">
+      <span style="color:#15803d" class="font-mono text-xs uppercase tracking-wider">Workflow</span>
+      <h2 class="text-3xl font-semibold text-civic-black tracking-tight">From dashcam to work order.</h2>
+    </div>
+
+    <div class="relative pl-4 md:pl-0">
+      <div class="absolute left-[27px] md:left-[27px] top-4 bottom-4 w-px bg-border-subtle"></div>
+      <div class="flex flex-col gap-12">
+
+        <!-- Step 1: Capture -->
+        <div class="relative flex gap-8 items-start group">
+          <div class="relative z-10 flex size-14 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface text-civic-black group-hover:border-civic-black transition-colors">
+            <span class="material-symbols-outlined">videocam</span>
+          </div>
+          <div class="flex flex-col gap-3 pt-2 w-full max-w-xl">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs font-mono text-text-muted uppercase">Step 01</span>
+              <h3 class="text-xl font-semibold text-civic-black">Capture</h3>
+            </div>
+            <p class="text-text-main leading-relaxed">Upload dashcam footage from existing maintenance vehicles. RoadSense supports standard .MP4 and .MOV formats, as well as bulk image uploads.</p>
+            <div class="mt-2 w-full max-w-sm h-32 bg-border-subtle/30 border border-border-subtle rounded flex items-center justify-center">
+              <div class="text-center">
+                <span class="material-symbols-outlined text-text-muted text-3xl">upload_file</span>
+                <p class="text-xs text-text-muted mt-2 font-mono">DRAG_DROP_ZONE.SYS</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 2: Analyze -->
+        <div class="relative flex gap-8 items-start group">
+          <div class="relative z-10 flex size-14 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface text-civic-black group-hover:border-civic-black transition-colors">
+            <span class="material-symbols-outlined">analytics</span>
+          </div>
+          <div class="flex flex-col gap-3 pt-2 w-full max-w-xl">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs font-mono text-text-muted uppercase">Step 02</span>
+              <h3 class="text-xl font-semibold text-civic-black">Analyze</h3>
+            </div>
+            <p class="text-text-main leading-relaxed">Our computer vision models identify pavement distress, cracking patterns, and road furniture health in near real-time.</p>
+            <!-- Bar chart mockup -->
+            <div class="mt-2 w-full max-w-sm bg-border-subtle/30 border border-border-subtle rounded p-4 flex flex-col gap-3">
+              <span class="font-mono text-xs text-text-muted uppercase">Defects detected · today</span>
+              <div class="flex flex-col gap-2.5">
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-xs text-text-muted w-24 shrink-0">Pothole</span>
+                  <div class="flex-1 h-3 bg-border-subtle rounded-sm overflow-hidden">
+                    <div style="width:72%; height:100%; background:#dc2626; border-radius:2px;"></div>
+                  </div>
+                  <span class="font-mono text-xs text-civic-black w-8 text-right">184</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-xs text-text-muted w-24 shrink-0">Alligator</span>
+                  <div class="flex-1 h-3 bg-border-subtle rounded-sm overflow-hidden">
+                    <div style="width:47%; height:100%; background:#d97706; border-radius:2px;"></div>
+                  </div>
+                  <span class="font-mono text-xs text-civic-black w-8 text-right">120</span>
+                </div>
+                <div class="flex items-center gap-3">
+                  <span class="font-mono text-xs text-text-muted w-24 shrink-0">Crack</span>
+                  <div class="flex-1 h-3 bg-border-subtle rounded-sm overflow-hidden">
+                    <div style="width:29%; height:100%; background:#9ca3af; border-radius:2px;"></div>
+                  </div>
+                  <span class="font-mono text-xs text-civic-black w-8 text-right">74</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 3: Resolve -->
+        <div class="relative flex gap-8 items-start group">
+          <div class="relative z-10 flex size-14 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-surface text-civic-black group-hover:border-civic-black transition-colors">
+            <span class="material-symbols-outlined">fact_check</span>
+          </div>
+          <div class="flex flex-col gap-3 pt-2 w-full max-w-xl">
+            <div class="flex flex-col gap-1">
+              <span class="text-xs font-mono text-text-muted uppercase">Step 03</span>
+              <h3 class="text-xl font-semibold text-civic-black">Resolve</h3>
+            </div>
+            <p class="text-text-main leading-relaxed">Verified defects are automatically converted into work orders and synced with your city's existing asset management system.</p>
+            <!-- Work order card -->
+            <div class="mt-2 w-full max-w-sm bg-border-subtle/30 border border-border-subtle rounded p-4 flex flex-col gap-3">
+              <span class="font-mono text-xs text-text-muted uppercase">Auto-generated work order</span>
+              <div class="bg-surface border border-border-subtle rounded p-3 flex flex-col gap-2">
+                <span class="font-mono text-xs font-bold text-civic-black">WO-2847 · Baner Road, Pune</span>
+                <div class="flex flex-col gap-1.5 pt-1 border-t border-border-subtle">
+                  <div class="flex items-center gap-2">
+                    <span class="wo-dot" style="background:#15803d;"></span>
+                    <span class="font-mono text-xs text-text-main">Status: <span class="font-semibold text-civic-black">Assigned</span></span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="wo-dot" style="background:#dc2626;"></span>
+                    <span class="font-mono text-xs text-text-main">Priority: <span class="font-semibold text-civic-black">High</span></span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="wo-dot" style="background:#9ca3af;"></span>
+                    <span class="font-mono text-xs text-text-main">Inspector: <span class="font-semibold text-civic-black">Rahul K.</span></span>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <button class="w-fit mt-2 text-sm font-semibold flex items-center gap-1 group/link" style="color:#15803d;">
+              See integration docs
+              <span class="material-symbols-outlined text-base transition-transform group-hover/link:translate-x-0.5">arrow_right_alt</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ── HEATMAP SECTION (replaces stock photo) ── -->
+  <section class="w-full bg-surface border border-border-subtle rounded-lg p-1">
+    <div class="relative w-full heatmap-bg rounded overflow-hidden" style="aspect-ratio: 21/9; min-height: 200px;">
+
+      <!-- Heat blobs — Critical (red) -->
+      <div class="heat-blob" style="left:38%;top:52%;width:70px;height:70px;background:radial-gradient(circle, rgba(220,38,38,0.55) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:52%;top:38%;width:55px;height:55px;background:radial-gradient(circle, rgba(220,38,38,0.45) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:44%;top:68%;width:60px;height:60px;background:radial-gradient(circle, rgba(220,38,38,0.5) 0%, transparent 70%);"></div>
+
+      <!-- Heat blobs — Moderate (amber) -->
+      <div class="heat-blob" style="left:25%;top:35%;width:42px;height:42px;background:radial-gradient(circle, rgba(217,119,6,0.5) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:65%;top:60%;width:38px;height:38px;background:radial-gradient(circle, rgba(217,119,6,0.45) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:72%;top:30%;width:34px;height:34px;background:radial-gradient(circle, rgba(217,119,6,0.4) 0%, transparent 70%);"></div>
+
+      <!-- Heat blobs — Good (green) -->
+      <div class="heat-blob" style="left:15%;top:60%;width:24px;height:24px;background:radial-gradient(circle, rgba(21,128,61,0.5) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:82%;top:50%;width:20px;height:20px;background:radial-gradient(circle, rgba(21,128,61,0.5) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:58%;top:78%;width:18px;height:18px;background:radial-gradient(circle, rgba(21,128,61,0.45) 0%, transparent 70%);"></div>
+      <div class="heat-blob" style="left:30%;top:72%;width:16px;height:16px;background:radial-gradient(circle, rgba(21,128,61,0.4) 0%, transparent 70%);"></div>
+
+      <!-- Bottom-left live card -->
+      <div class="absolute bottom-4 left-4 bg-surface border border-border-subtle rounded p-3 flex flex-col gap-1.5 shadow-sm max-w-xs">
+        <div class="flex items-center gap-2">
+          <div class="w-2 h-2 rounded-full pulse" style="background:#15803d;"></div>
+          <span class="text-xs font-mono font-bold text-civic-black">HEATMAP · Pune, Maharashtra</span>
+        </div>
+        <p class="text-xs text-text-muted font-mono">248 inspections plotted · Updated live</p>
+      </div>
+
+      <!-- Bottom-right legend -->
+      <div class="absolute bottom-4 right-4 bg-surface border border-border-subtle rounded px-3 py-2 flex items-center gap-4">
+        <div class="flex items-center gap-1.5">
+          <span style="width:7px;height:7px;border-radius:50%;background:#15803d;display:inline-block;"></span>
+          <span class="font-mono text-xs text-text-muted">Good</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span style="width:7px;height:7px;border-radius:50%;background:#d97706;display:inline-block;"></span>
+          <span class="font-mono text-xs text-text-muted">Moderate</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <span style="width:7px;height:7px;border-radius:50%;background:#dc2626;display:inline-block;"></span>
+          <span class="font-mono text-xs text-text-muted">Critical</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="w-full border-t border-border-subtle bg-white mt-auto">
+  <div class="max-w-civic mx-auto px-6 py-12">
+    <div class="flex flex-col md:flex-row justify-between items-start gap-12">
+      <div class="flex flex-col gap-4 max-w-xs">
+        <div class="flex items-center gap-2 text-civic-black">
+          <div class="size-4">
+            <svg class="w-full h-full" fill="none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2L2 22H22L12 2ZM12 6L18 18H6L12 6Z" fill="currentColor"/>
+            </svg>
+          </div>
+          <span class="font-bold text-base tracking-tight">RoadSense</span>
+        </div>
+        <p class="text-sm text-text-muted">Civic intelligence for the modern age. Built for engineers who value data integrity over flashiness.</p>
+      </div>
+      <div class="flex gap-16">
+        <div class="flex flex-col gap-3">
+          <h4 class="font-mono text-xs font-semibold text-text-muted uppercase tracking-wider">Product</h4>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Features</a>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Integrations</a>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Security</a>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Changelog</a>
+        </div>
+        <div class="flex flex-col gap-3">
+          <h4 class="font-mono text-xs font-semibold text-text-muted uppercase tracking-wider">Company</h4>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">About</a>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Careers</a>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Legal</a>
+          <a class="text-sm text-text-main transition-colors hover:text-primary" href="#">Contact</a>
+        </div>
+      </div>
+    </div>
+    <div class="mt-12 pt-8 border-t border-border-subtle flex flex-col md:flex-row justify-between items-center gap-4">
+      <p class="text-xs text-text-muted font-mono">© 2026 RoadSense Systems Inc.</p>
+      <div class="flex gap-6">
+        <a class="text-xs text-text-muted hover:text-civic-black font-mono" href="#">PRIVACY_POLICY.MD</a>
+        <a class="text-xs text-text-muted hover:text-civic-black font-mono" href="#">TERMS_OF_SERVICE.MD</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
