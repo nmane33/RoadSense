@@ -1,8 +1,5 @@
 # 🛣️ RoadSense - AI-Based Road Inspection System
 
-> Built for WITCHAR-26 Hackathon · Problem Statement ID: 05
-> Team: Atharva Baodhankar · Esha Chavan · Jay Suryawanshi
-
 ## 🎯 Project Overview
 
 RoadSense is a full-stack web application that automates road inspection using AI-powered defect detection. It helps municipal authorities identify and prioritize road maintenance by analyzing photos uploaded by field inspectors.
